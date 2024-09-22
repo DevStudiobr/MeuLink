@@ -45,7 +45,7 @@ def shorten_url(long_url):
     conn.commit()
     conn.close()
 
-    return f"http://localhost/{short_key}"
+    return f"http://meulink/{short_key}"
 
 # Função para recuperar a URL longa
 def get_long_url(short_key):
