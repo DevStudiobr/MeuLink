@@ -2,21 +2,29 @@ from flask import Flask, request, jsonify
 import sqlite3
 import string
 import random
+import secrets
 
 app = Flask(__name__)
 
-# Conectar ao banco de dados
+API_KEY = 'sua_chave_aqui'  # Substitua pela chave gerada
+
 def connect_db():
     conn = sqlite3.connect('urls.db')
     return conn
 
-# Gerar chave curta
 def generate_short_key(length=6):
     characters = string.ascii_letters + string.digits
     short_key = ''.join(random.choice(characters) for _ in range(length))
     return short_key
 
-# Rota para encurtar URL
+# Middleware para verificar a chave da API
+@app.before_request
+def require_api_key():
+    if request.endpoint != 'get_long_url':  # Permite acesso à recuperação de URLs
+        api_key = request.headers.get('x-api-key')
+        if api_key != API_KEY:
+            return jsonify({'error': 'Acesso não autorizado'}), 403
+
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
     data = request.get_json()
@@ -35,7 +43,6 @@ def shorten_url():
     
     return jsonify({'short_url': f'http://meulink/{short_key}'})
 
-# Rota para recuperar URL longa
 @app.route('/<short_key>', methods=['GET'])
 def get_long_url(short_key):
     conn = connect_db()
