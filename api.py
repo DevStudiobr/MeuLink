@@ -1,61 +1,37 @@
 from flask import Flask, request, jsonify
-import sqlite3
-import string
-import random
-import secrets
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Habilita CORS para todas as rotas
 
-API_KEY = 'sua_chave_aqui'  # Substitua pela chave gerada
-
-def connect_db():
-    conn = sqlite3.connect('urls.db')
-    return conn
-
-def generate_short_key(length=6):
-    characters = string.ascii_letters + string.digits
-    short_key = ''.join(random.choice(characters) for _ in range(length))
-    return short_key
-
-# Middleware para verificar a chave da API
-@app.before_request
-def require_api_key():
-    if request.endpoint != 'get_long_url':  # Permite acesso à recuperação de URLs
-        api_key = request.headers.get('x-api-key')
-        if api_key != API_KEY:
-            return jsonify({'error': 'Acesso não autorizado'}), 403
+# Dicionário simples para armazenar URLs
+url_storage = {}
 
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
     data = request.get_json()
     long_url = data.get('long_url')
-    
+
     if not long_url:
-        return jsonify({'error': 'URL longa é necessária'}), 400
+        return jsonify({'error': 'URL longa é necessária!'}), 400
 
-    short_key = generate_short_key()
-    conn = connect_db()
-    cursor = conn.cursor()
-    
-    cursor.execute('INSERT INTO urls (long_url, short_key) VALUES (?, ?)', (long_url, short_key))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({'short_url': f'http://meulink/{short_key}'})
+    # Criação de um ID simples para a URL encurtada
+    short_id = str(len(url_storage) + 1)  # Exemplo simples
+    short_url = f"http://meulink/{short_id}"
 
-@app.route('/<short_key>', methods=['GET'])
-def get_long_url(short_key):
-    conn = connect_db()
-    cursor = conn.cursor()
+    # Armazenando a URL
+    url_storage[short_id] = long_url
 
-    cursor.execute('SELECT long_url FROM urls WHERE short_key = ?', (short_key,))
-    result = cursor.fetchone()
-    conn.close()
+    return jsonify({'short_url': short_url})
 
-    if result:
-        return jsonify({'long_url': result[0]})
+@app.route('/<short_id>', methods=['GET'])
+def redirect_url(short_id):
+    long_url = url_storage.get(short_id)
+
+    if long_url:
+        return jsonify({'long_url': long_url})
     else:
-        return jsonify({'error': 'URL não encontrada'}), 404
+        return jsonify({'error': 'URL não encontrada!'}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
